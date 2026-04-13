@@ -1,4 +1,4 @@
-﻿# Claude ClaudeTokenVampire
+﻿# ClaudeTokenVampire
 
 A system-tray app that monitors your Claude Code token usage in real time.
 Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed — ClaudeTokenVampire does.
@@ -7,7 +7,7 @@ Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed
 
 ## What it does
 
-It puts you in control over your expensive Claude Code tokens:
+It puts you in control of your expensive Claude Code tokens:
 - Tracks **all token types**: input, output, cache creation, cache reads
 - Shows a **5-hour [rolling window](https://gabrielmoraru.com/the-5-hour-mirage-anthropics-diabolical-moving-goalposts-subscription/)** with per-hour bar chart
 - Color-coded bars: green → yellow → red as you approach your limit
@@ -15,7 +15,7 @@ It puts you in control over your expensive Claude Code tokens:
 - Shows **cache hit rate** and warns when the 5-minute cache gap expires!
 - Counts down until the oldest tokens **evaporate** from the window
 - Runs quietly in the **system tray** — click the icon to show/hide
-- USES 0 TOKENS (everything is done internally without sending a single command through Claude)
+- **USES 0 TOKENS** — runs entirely offline, no API calls, no Claude queries
 
 ## Views
 
@@ -24,7 +24,7 @@ It puts you in control over your expensive Claude Code tokens:
 
 ## Settings
 
-- Token limit (default 88M — roughly Anthropic's Max 5x tier)
+- Token limit (default 88M — roughly Anthropic's Max plan at 5x usage tier)
 - Cost rates per 1M tokens (input / output / cache read / cache create)
 - Refresh interval (default 60s)
 - Start with Windows
@@ -34,7 +34,7 @@ It puts you in control over your expensive Claude Code tokens:
 
 - Windows 10/11
 - Claude Code (no API keys needed)
-- Zero external libraries.
+- No external libraries needed
 
 
 ## Platform support
@@ -66,19 +66,19 @@ The codebase uses FMX (FireMonkey), which is cross-platform. The macOS port main
 
 ### Chart (bottom)
 
-Each bar height = total tokens used in the user-defined interval (default 15 minutes).
+Each bar = one 15-minute bucket. The full 5h window has 20 bars; the chart also shows 20 older bars (grayed out) for context — 40 bars total spanning 10 hours.
 
-**Y-axis** scales to your per-hour budget (limit / 5). So if your limit is 88M, the Y-axis tops out around 17.6M per hour.
+**Y-axis** scales to your per-bucket budget (limit / 20). So if your limit is 88M, the Y-axis tops out at 4.4M per bar.
 
 **Bar colors** (when limit is set):
 - Green: < 50% of Y-axis max
-- Yellow: 50-75%
-- Orange: 75-90%
+- Yellow: 50–75%
+- Orange: 75–90%
 - Red: >= 90%
 
 **Bar colors** (no limit set): blue (auto-scale mode).
 
-A value label appears above each bar showing the token count for that hour.
+A value label appears above each bar showing the token count for that 15-minute interval.
 
 **Legend** at the bottom shows the color key.
 
