@@ -7,9 +7,8 @@ Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed
 
 ## What it does
 
-- Reads Claude Code's local session files (`~/.claude/projects/`)
 - Tracks **all token types**: input, output, cache creation, cache reads
-- Shows a **5-hour rolling window** with per-hour bar chart
+- Shows a **5-hour [rolling window](https://gabrielmoraru.com/the-5-hour-mirage-anthropics-diabolical-moving-goalposts-subscription/)** with per-hour bar chart
 - Color-coded bars: green → yellow → red as you approach your limit
 - Estimates **cost** (configurable $/1M token rates)
 - Shows **cache hit rate** and warns when the 5-minute cache gap expires
