@@ -1,0 +1,10 @@
+{
+  "name": "claudetokenvampire",
+  "description": "Monitor Claude Code's 5-hour rolling token usage from the system tray",
+  "version": "1.0.0",
+  "author": {
+    "name": "Gabriel Moraru",
+    "url": "https://GabrielMoraru.com"
+  },
+  "platforms": ["win32"]
+}
