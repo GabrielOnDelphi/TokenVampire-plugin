@@ -1,15 +1,27 @@
 ClaudeTokenVampire — Installation
 =========================
 
-Requirements: Windows, Claude Code CLI, Node.js (already installed if you have Claude Code)
-
 Install:
-  1. Copy this folder somewhere permanent (e.g. C:\Tools\ClaudeTokenVampire-plugin)
+  1. Copy this folder somewhere permanent (e.g. C:\Tools\ClaudeTokenVampire)
   2. Double-click Install.cmd
   3. In Claude Code, run:  /reload-plugins
 
-Launch:
-  Type /claudetokenvampire:monitor in Claude Code
+Launch (two ways):
+  - Fast:  Type "launch vampire" or "token monitor" in Claude Code (instant, no thinking delay)
+  - Skill: Type /claudetokenvampire:monitor in Claude Code (~5 sec, loads full context)
+
+
+
+____________________
+
+
+
 
 Uninstall:
-  Double-click Uninstall.cmd, then /reload-plugins in Claude Code
+  1. Double-click Uninstall.cmd
+  2. In Claude Code, run:  /reload-plugins
+
+Troubleshooting:
+  - "Plugin not found in marketplace" — run Install.cmd again, then /reload-plugins
+  - Skill doesn't appear — run /reload-plugins (skills are cached at reload time)
+  - App won't launch — check that bin\ClaudeTokenVampire.exe exists in this folder
