@@ -7,14 +7,15 @@ Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed
 
 ## What it does
 
+It puts you in control over your expensive Claude Code tokens:
 - Tracks **all token types**: input, output, cache creation, cache reads
 - Shows a **5-hour [rolling window](https://gabrielmoraru.com/the-5-hour-mirage-anthropics-diabolical-moving-goalposts-subscription/)** with per-hour bar chart
 - Color-coded bars: green → yellow → red as you approach your limit
 - Estimates **cost** (configurable $/1M token rates)
-- Shows **cache hit rate** and warns when the 5-minute cache gap expires
+- Shows **cache hit rate** and warns when the 5-minute cache gap expires!
 - Counts down until the oldest tokens **evaporate** from the window
 - Runs quietly in the **system tray** — click the icon to show/hide
-- USES 0 TOKENS! 
+- USES 0 TOKENS (everything is done internally without sending a single command through Claude)
 
 ## Views
 
@@ -26,8 +27,8 @@ Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed
 - Token limit (default 88M — roughly Anthropic's Max 5x tier)
 - Cost rates per 1M tokens (input / output / cache read / cache create)
 - Refresh interval (default 60s)
-- Start minimized
 - Start with Windows
+- etc
 
 ## Requirements
 
