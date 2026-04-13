@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claudetokenvampire",
+  "description": "Monitor Claude Code's 5-hour rolling token usage from the system tray",
+  "owner": {
+    "name": "Gabriel Moraru",
+    "url": "https://GabrielMoraru.com"
+  },
+  "plugins": [
+    {
+      "name": "claudetokenvampire",
+      "description": "Monitor Claude Code's 5-hour rolling token usage from the system tray",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

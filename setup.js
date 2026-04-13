@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const MARKETPLACE  = 'local-plugins';
+const MARKETPLACE  = 'claudetokenvampire';
 const PLUGIN_NAME  = 'claudetokenvampire@' + MARKETPLACE;
 const SETTINGS_DIR = path.join(process.env.USERPROFILE, '.claude');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
