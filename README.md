@@ -3,7 +3,13 @@
 A system-tray app that monitors your Claude Code token usage in real time.
 Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed — ClaudeTokenVampire does.
 
-![ClaudeTokenVampire - Screenshot](ScreenShot.png)
+![ClaudeTokenVampire - Logo](Logo.jpg)
+
+## Why not just use claude.ai/settings/usage?
+
+Anthropic's usage page shows a progress bar and "Resets in X hours" — but a rolling window **has no reset moment**, so that bar is [fundamentally misleading](ReadMe%20-How%20Anthropic%20Lies%20To%20You.md). Two users at 100% can have completely different recovery times (15 minutes vs 5 hours) and the progress bar shows the same thing for both.
+
+![ClaudeTokenVampire - Screenshot](ScreenShot.jpg)
 
 ## What it does
 
@@ -118,4 +124,11 @@ Click a project to view its individual stats and hourly chart.
 It opens files in read-only shared mode so it never interferes with Claude Code. 
 No data is sent anywhere.
 No tokens are wasted.
+
+## Stars are free
+
+Click the "Star" but ONLY if you think the project deserves it :)
+This will encourage future development. 
+
+
 
