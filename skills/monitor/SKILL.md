@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # ClaudeTokenVampire — Token Usage Monitor
 
-Launch ClaudeTokenVampire to monitor your Claude Code 5-hour rolling token window.
+Launch ClaudeTokenVampire to monitor your Claude Code 5-hour session token window.
 Windows only. Runs as a system-tray app.
 
 ```powershell
@@ -14,10 +14,9 @@ Start-Process "${CLAUDE_PLUGIN_ROOT}/bin/ClaudeTokenVampire.exe"
 ```
 
 ClaudeTokenVampire shows:
-- Total tokens in last 5 hours (input + output + cache)
-- Per-hour bar chart with color-coded usage levels
-- Extended 10-hour history (muted bars for expired tokens)
+- Total tokens in the current 5-hour session (input + output + cache)
+- Per-bucket bar chart spanning `session_start -> session_end`, color-coded by usage level
 - Cache hit rate and cache tier status (warm/cold)
 - Estimated cost based on configurable per-million rates
-- Time until oldest messages expire from the window
+- Time until the session hard-resets (single reset, not per-message expiry)
 - Per-project breakdown

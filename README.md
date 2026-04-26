@@ -1,44 +1,115 @@
-﻿# Claude TokenVampire
+# Claude TokenVampire
 
 An app that monitors your Claude Code token usage in real time.
-Anthropic doesn't tell you how much of your 5-hour rolling quota you've consumed — ClaudeTokenVampire does.
+Anthropic doesn't show you how much of your current 5-hour session quota you've consumed — ClaudeTokenVampire does.
 
 ![ClaudeTokenVampire - Logo](Logo.jpg)
 
-## Why not just use claude.ai/settings/usage?
+> **Full documentation lives on the website:**
+> **[gabrielmoraru.com/my-delphi-code/token-vampire](https://gabrielmoraru.com/my-delphi-code/token-vampire/)**
 
-Anthropic's usage page shows a progress bar and "Resets in X hours" — but a rolling window **has no reset moment**, so that bar is [fundamentally misleading](ReadMe%20-How%20Anthropic%20Lies%20To%20You.md). Two users at 100% can have completely different recovery times (15 minutes vs 5 hours) and the progress bar shows the same thing for both.
+## How Anthropic's 5-hour window actually works
+
+**Session-based, not sliding.** Your 5-hour clock starts on your first message and runs for exactly 5 hours regardless of activity, at which point the counter hard-resets. The next session starts on the first message after that reset. Anthropic uses the word "rolling" in their docs but means "cycles session-to-session", not "continuously sliding".
+
+Source: [Anthropic support article 12429409](https://support.claude.com/en/articles/12429409-manage-extra-usage-for-paid-claude-plans) — *"if you hit your limit at 2 PM, your next allocation begins at 7 PM, then 12 AM, and so on."*
 
 ![ClaudeTokenVampire - Screenshot](ScreenShot.jpg)
 
 ## What it does
 
-It puts you in control of your expensive Claude Code tokens:
-- Tracks **all token types**: input, output, cache creation, cache reads
-- Shows a **5-hour [rolling window](https://gabrielmoraru.com/the-5-hour-mirage-anthropics-diabolical-moving-goalposts-subscription/)** with per-hour bar chart
+It puts you in control of your Claude Code tokens:
+- Tracks **all billable token types**: input, output, cache creation, cache reads
+- Shows the **current 5-hour session** with a per-bucket bar chart from `session_start → session_end`
 - Color-coded bars: green → yellow → red as you approach your limit
 - Estimates **cost** (configurable $/1M token rates)
-- Shows **cache hit rate** and warns when the 5-minute cache gap expires!
-- Counts down until the oldest tokens **evaporate** from the window
+- Shows **cache hit rate** and warns when the 5-minute cache gap expires
+- Counts down until the session **hard-resets** (all tokens reset at once, not gradually)
 - Runs quietly in the **system tray** — click the icon to show/hide
 - **USES 0 TOKENS** — runs entirely offline, no API calls, no Claude queries
 
+## Features
 
-## Install
-Install then type _launch vampire_ to see your token usage.
-See "How to install.txt" for details.
+### Data Engine
+- Parses all billable token types: input, output, cache creation, cache read
+- Sorts entries by timestamp; skips non-`assistant` entries
+- **Detects the current 5-hour session**: first message where no predecessor exists within 5h; session runs for exactly 5h from there
+- Aggregates only entries inside `[SessionStart, SessionEnd]` — matches what Anthropic counts
+- Per-project breakdown, sorted descending by token usage
+- Configurable bucket width (2-60 minutes per chart bar)
+
+### Computed Stats (per session, global and per-project)
+- Total tokens: input + output + cache creation + cache read
+- Per-type token breakdown
+- Message count (assistant turns) in current session
+- Cache hit rate: `cache_read / (cache_read + input)`
+- Cost estimate in USD (four independently configurable $/1M rates)
+- Minutes until session hard-reset (`SessionEnd - Now`)
+- Idle minutes since the last message
+- Cache gap warning (5m and 1h tier cold/warm detection)
+- Cache tier breakdown: 1h ephemeral vs 5m ephemeral tokens
+- Web search and web fetch counts
+
+### All Projects Tab
+- Combined stats across all projects
+- Four gradient progress bars: token usage, cache hit rate, session-reset countdown, cache warmth
+- Bar chart spanning the current session window (left edge = `SessionStart`, right edge = `SessionEnd`)
+- Configurable bucket width
+- Color-coded bars: green → yellow → orange → red by % of per-slot budget
+- Auto-scale blue mode when no limit is configured
+- Token value labels above each active bar
+- Y-axis with token count labels
+- X-axis with hour offsets (`start`, `+1h`, `+2h`, `+3h`, `+4h`, `end (reset)`)
+- 10% horizontal grid lines; vertical hour-mark grid lines
+- Legend (color key or auto-scale note)
+- Cache status line: shows both 5m and 1h tier state + idle time, color-coded
+- **Hot hours warning** (13:00-18:59 local time — Anthropic peak-load window, user-reported)
+- Detailed tooltips on every stat label
+
+### Per Project Tab
+- Project list: active projects (with token counts) and inactive known projects (gray, separated)
+- Per-project stats: tokens, messages, cache hit rate, cost, expiry, cache status
+- Per-project bar chart (same renderer, filtered data)
+- Selection preserved across automatic refreshes
+
+### General UI
+- Status bar: last scan time, session files scanned, messages in 5h, active project count
+- Manual refresh button
+- Settings dialog
+- FMX skin / theme picker (multiple built-in skins)
+- Auto-refresh timer (configurable interval, default 60 s)
+- Form position auto-saved and restored (LightSaber TLightForm)
+- User configurable time per bar (default: one bar = 15 minutes)
+
+### Plugin & Distribution
+- Claude Code plugin installed via Node.js (no admin required)
+- Skill: `/claudetokenvampire:monitor`
+- Hook-based **instant launch** (bypasses the model entirely): type _launch vampire_, _start vampire_, or _token monitor_
+- Windows directory junctions for skill cache discovery (no admin, zero-copy, stays in sync)
+- `Install.cmd` / `Uninstall.cmd` wrappers for double-click install
 
 ## Views
 
-- **All Projects** — combined rolling 5h view across everything
+- **All Projects** — combined current-session view across everything
 - **Per Project** — same chart broken down by project
+
+## Install
+
+1. Copy this folder somewhere permanent (e.g. `C:\Tools\ClaudeTokenVampire`)
+2. Double-click `Install.cmd`
+3. In Claude Code, run: `/reload-plugins`
+
+**Launch (two ways):**
+- **Fast:** Type `launch vampire`, `start vampire`, or `token monitor` in Claude Code (instant, no thinking delay)
+- **Skill:** Type `/claudetokenvampire:monitor` in Claude Code (~5 sec, loads full context)
+
+See `How to install.txt` for troubleshooting.
 
 ## Requirements
 
 - Windows 10/11
 - Claude Code (no API keys needed)
 - No external libraries needed
-
 
 ## Platform support
 
@@ -49,89 +120,25 @@ See "How to install.txt" for details.
 
 The codebase uses FMX (FireMonkey), which is cross-platform. The macOS port mainly requires swapping `%USERPROFILE%\.claude\` for `~/.claude/`.
 
-
 ## Safety
 
-- It opens files in read-only shared mode so it never interferes with Claude Code. 
+- Opens files in read-only shared mode — never interferes with Claude Code.
 - Totally local.
 - No data is sent anywhere.
 - No tokens are wasted.
 - No API key required.
 
+## Documentation
+
+The **full user manual, settings reference, tips, roadmap and the "How Anthropic Lies To You" essay** are on the website:
+
+**[gabrielmoraru.com/my-delphi-code/token-vampire](https://gabrielmoraru.com/my-delphi-code/token-vampire/)**
 
 ## Stars are free
 
-Click the "Star" but ONLY if you think the project deserves it :)
-This will encourage future development. 
+Click the "Star" — but only if you think the project deserves it :)
+High-starred projects get priority for new features.
 
-In the near future: 
-- Minimize to systray 
-- Show window in "minimal" mode (only show critical info)
-- Beep when getting closer to reach maximum quota
-- Show waring when you are using Claude during peak hours 
-- Rate limit prediction — project velocity forward: "at this pace, limit in 47 min." 
-- Budget enforcement via hooks
-- Real-time activity indicator — tray icon color change when Claude active.
-- Tool call analytics - "Top 10 tool calls" stat.
-- Session search — keyword search across sessions. 
-- Support for multiple computers (when you use your account in two computers)
+---
 
-
-----
-
-# User manual 
-
-## All Projects Tab
-
-### Stats Panel (top)
-
-| Label | Meaning |
-|-------|---------|
-| **Total tokens (5h)** | Sum of all tokens (input + output + cache creation + cache read) in the last 5 hours. Shown as `used / limit`. |
-| **Messages** | Number of assistant responses in the 5h window. |
-| **Cache hit rate** | `cache_read / (cache_read + input)`. Higher = cheaper. 99%+ is normal for long sessions. |
-| **Estimated cost** | USD estimate based on token counts and per-million rates (configurable in Settings). |
-| **Next expiry in** | Minutes until the oldest message in the window "falls off" (older than 5h). Usage drops when messages expire. |
-| **Cache status** | Two cache tiers shown separately. **5m cache** (SubAgents/tools) = warm if last message < 5 min ago. **1h cache** (main conversation) = warm if last message < 1 hour ago. Orange = 5m cold but 1h still warm. Red = both cold (full rebuild on next message). |
-| **Web searches / fetches** | Count of web_search and web_fetch tool calls in the window. |
-| **Cache 1h / 5m** | Breakdown of cache creation tokens by tier: 1-hour ephemeral vs 5-minute ephemeral. Display only — already included in total. |
-
-### Chart (bottom)
-
-Each bar = one 15-minute bucket. The full 5h window has 20 bars; the chart also shows 20 older bars (grayed out) for context — 40 bars total spanning 10 hours.
-
-**Y-axis** scales to your per-bucket budget (limit / 20). So if your limit is 88M, the Y-axis tops out at 4.4M per bar.
-
-**Bar colors** (when limit is set):
-- Green: < 50% of Y-axis max
-- Yellow: 50–75%
-- Orange: 75–90%
-- Red: >= 90%
-
-**Bar colors** (no limit set): blue (auto-scale mode).
-A value label appears above each bar showing the token count for that 15-minute interval.
-
-
-## Settings
-
-| Setting | Default | Notes |
-|---------|---------|-------|
-| Max tokens (5h window) | 88,000,000 | Your estimated 5h rolling limit. Set to 0 if unknown (chart switches to auto-scale blue). |
-| Cost: input tokens ($/1M) | 3.00 | Anthropic's price per 1M input tokens |
-| Cost: output tokens ($/1M) | 15.00 | Per 1M output tokens |
-| Cost: cache read ($/1M) | 0.30 | Per 1M cache-read tokens |
-| Cost: cache creation ($/1M) | 3.75 | Per 1M cache-creation tokens |
-| Refresh interval (seconds) | 60 | How often to re-scan session files. Minimum 10. |
-| Start minimized to tray | off | Hide window on app startup |
-| Start with Windows | off | Launch at Windows login |
-
-![ClaudeTokenVampire - Screenshot](Screenshot Settings.jpg)
-
-
-## Tips
-
-- **"CACHE COLD" warning**: Two tiers. **5-min cache** (SubAgents/tools): expires after 5 min idle — step away briefly and SubAgent calls get more expensive. **1-hour cache** (main conversation): expires after 60 min idle — the full prompt rebuild only hits when you've been away for over an hour. Orange = SubAgent cache cold, main cache still warm. Red = both cold.
-- **Next expiry**: When this hits 0, your oldest messages roll off and total usage drops. Useful to know if you're near the limit — just wait.
-- **Per-hour chart**: Helps spot usage spikes. A single heavy hour (large bar) suggests a big refactor or long conversation.
-- **Cost estimate**: Approximate. Real billing may differ. Useful for relative comparison.
-
+*If AI-assisted Delphi development interests you, see my book [Delphi in all its glory – AI-Assisted Development for Delphi](https://www.amazon.com/Delphi-all-its-glory-AI-assisted/dp/B0GTDXDGDK).*
