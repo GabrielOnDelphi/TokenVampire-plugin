@@ -25,8 +25,10 @@ It puts you in control of your Claude Code tokens:
 - Estimates **cost** (configurable $/1M token rates)
 - Shows **cache hit rate** and warns when the 5-minute cache gap expires
 - Counts down until the session **hard-resets** (all tokens reset at once, not gradually)
+- Tracks the **7-day weekly cap** with its own configurable limit and ratio bar
+- **Top tool calls** — a third tab ranks the tools your sessions hit most over the last 7 days, with calls / cost / avg duration
 - Runs quietly in the **system tray** — click the icon to show/hide
-- **USES 0 TOKENS** — runs entirely offline, no API calls, no Claude queries
+- **USES 0 TOKENS by default** — runs entirely offline, no API calls, no Claude queries (the optional auto-ping feature is opt-in and uses a few tokens per ping)
 
 ## Features
 
@@ -49,6 +51,7 @@ It puts you in control of your Claude Code tokens:
 - Cache gap warning (5m and 1h tier cold/warm detection)
 - Cache tier breakdown: 1h ephemeral vs 5m ephemeral tokens
 - Web search and web fetch counts
+- **7-day total tokens** (true sliding window) with optional weekly cap
 
 ### All Projects Tab
 - Combined stats across all projects
@@ -72,6 +75,26 @@ It puts you in control of your Claude Code tokens:
 - Per-project bar chart (same renderer, filtered data)
 - Selection preserved across automatic refreshes
 
+### Tools Tab
+- Top-10 tool calls over the last 7 days
+- Three sortable columns: **Calls** / **Cost (est.)** / **Avg ms**
+- Lazy refresh: scan only fires when you open the tab — never burns CPU in the background
+- Cost attribution: each turn's output tokens split evenly across the turn's tool_uses
+- Pairs `tool_use` and `tool_result` JSONL entries for accurate duration measurement
+
+### Auto-Ping (Optional, Opt-In)
+- Disabled by default to keep the "0 tokens" promise intact
+- Smart trigger: pings Claude only when no session is active, or when the current session is within 30 minutes of its hard-reset
+- User-configurable interval (30 to 240 minutes, default 60)
+- Spawns `claude -p "hi"` headless via `cmd.exe` — no visible window, detached
+- After 3 consecutive spawn failures it disables itself for the run; auto-re-enables when you re-open Settings
+- Uses a few tokens per ping (typically <50 output tokens), worth it to start a fresh 5h window before you actually need to work
+
+### Vote Prompt (One-Time)
+- After your 3rd launch, asks once whether you want to help shape the next feature
+- Three buttons: Vote now (opens GitHub Discussions), Remind me later (7 days), Never (permanent)
+- ESC / X-button defaults to "Remind me later" — never re-fires on the same launch
+
 ### General UI
 - Status bar: last scan time, session files scanned, messages in 5h, active project count
 - Manual refresh button
@@ -91,6 +114,7 @@ It puts you in control of your Claude Code tokens:
 ## Views
 
 - **All Projects** — combined current-session view across everything
+- **Tools** — Top-10 tool calls over the last 7 days
 - **Per Project** — same chart broken down by project
 
 ## Install
@@ -125,7 +149,7 @@ The codebase uses FMX (FireMonkey), which is cross-platform. The macOS port main
 - Opens files in read-only shared mode — never interferes with Claude Code.
 - Totally local.
 - No data is sent anywhere.
-- No tokens are wasted.
+- No tokens are wasted (auto-ping is opt-in and uses only a handful per ping when enabled).
 - No API key required.
 
 ## Documentation
