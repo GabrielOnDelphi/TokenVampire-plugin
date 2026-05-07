@@ -1,11 +1,14 @@
 {
   "name": "claudetokenvampire",
-  "description": "Monitor Claude Code's 5-hour rolling token usage from the system tray",
+  "description": "Monitor Claude Code's 5-hour session token usage from the system tray. Per-project breakdown, cache hit rate, cost estimate, 7-day cap, pace projection, peak-hours warning. Local-only, zero tokens.",
   "version": "1.0.0",
   "author": {
     "name": "Gabriel Moraru",
     "url": "https://GabrielMoraru.com"
   },
+  "homepage": "https://gabrielmoraru.com/my-delphi-code/token-vampire/",
+  "repository": "https://github.com/GabrielOnDelphi/ClaudeCode_TokenVampire",
+  "license": "MPL-2.0",
   "platforms": ["win32"],
   "hooks": {}
 }
