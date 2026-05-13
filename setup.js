@@ -22,6 +22,7 @@ const SETTINGS_FILE    = path.join(CLAUDE_DIR, 'settings.json');
 const KNOWN_MKT        = path.join(PLUGINS_DIR, 'known_marketplaces.json');
 const INSTALLED        = path.join(PLUGINS_DIR, 'installed_plugins.json');
 const HOOK_SCRIPT_PATH = path.join(CLAUDE_DIR, 'vampire-hook.ps1');
+const STATUSLINE_PATH  = path.join(CLAUDE_DIR, 'vampire-statusline.ps1');
 const PLUGIN_DIR       = __dirname;
 
 // Generate the ps1 helper script content with the actual EXE path embedded.
@@ -44,6 +45,60 @@ if ($prompt -imatch '${HOOK_TRIGGER}') {
 }
 `;
 }
+
+// Statusline ps1: reads rate_limits from Claude Code's stdin JSON and writes them to a
+// JSON file the desktop app polls. Anthropic only exposes rate_limits on Claude.ai Pro/Max
+// after the first API response, so the snapshot may take a moment to appear.
+// Schema: https://code.claude.com/docs/en/statusline (rate_limits.five_hour.{used_percentage,resets_at})
+function statuslinePs1Content() {
+    return `$stdin = [Console]::In.ReadToEnd()
+if ($stdin -eq '') {
+    Write-Output ''
+    exit 0
+}
+try {
+    $j = $stdin | ConvertFrom-Json
+    $rl = $j.rate_limits
+    if ($rl -ne $null) {
+        $out = @{ written_at = [int][double]::Parse((Get-Date -UFormat %s)) }
+        if ($rl.five_hour -ne $null) {
+            $out.five_hour = @{
+                used_percentage = $rl.five_hour.used_percentage
+                resets_at       = $rl.five_hour.resets_at
+            }
+        }
+        if ($rl.seven_day -ne $null) {
+            $out.seven_day = @{
+                used_percentage = $rl.seven_day.used_percentage
+                resets_at       = $rl.seven_day.resets_at
+            }
+        }
+        $dir = Join-Path $env:APPDATA 'Light TokenVampire'
+        if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+        $jsonPath = Join-Path $dir 'rate_limits.json'
+        $out | ConvertTo-Json -Depth 4 | Set-Content -Path $jsonPath -Encoding utf8 -Force
+    }
+} catch {
+}
+Write-Output ''
+exit 0
+`;
+}
+
+// ANSI color helpers. Windows 10/11 cmd.exe and Terminal honor these out of the box;
+// older shells fall through harmlessly (chunks of '\x1b[...m' visible but readable).
+// Routed to a single output channel: stdout for normal lines, stderr for errors.
+const ANSI = {
+    gray:  '\x1b[90m',
+    green: '\x1b[32m',
+    red:   '\x1b[31m',
+    reset: '\x1b[0m'
+};
+function log(msg)     { process.stdout.write(ANSI.gray  + msg + ANSI.reset + '\n'); }
+function logOk(msg)   { process.stdout.write(ANSI.green + msg + ANSI.reset + '\n'); }
+function logErr(msg)  { process.stderr.write(ANSI.red   + msg + ANSI.reset + '\n'); }
 
 function readJSON(filePath) {
     if (!fs.existsSync(filePath)) return null;
@@ -92,8 +147,8 @@ function install() {
 
     // Verify EXE exists before doing anything
     if (!fs.existsSync(exePath)) {
-        console.error('ERROR: EXE not found: ' + exePath);
-        console.error('Ensure ClaudeTokenVampire.exe is in the bin\\ subfolder.');
+        logErr('ERROR: EXE not found: ' + exePath);
+        logErr('Ensure ClaudeTokenVampire.exe is in the bin\\ subfolder.');
         process.exit(1);
     }
 
@@ -101,12 +156,12 @@ function install() {
     //    Claude Code reads skills from the cache path, marketplace for discovery.
     createJunction(PLUGIN_DIR, CACHE_DIR);
     createJunction(PLUGIN_DIR, MKT_DIR);
-    console.log('  Cache junction: ' + CACHE_DIR + ' -> ' + PLUGIN_DIR);
-    console.log('  Mkt junction:   ' + MKT_DIR + ' -> ' + PLUGIN_DIR);
+    log('  Cache junction: ' + CACHE_DIR + ' -> ' + PLUGIN_DIR);
+    log('  Mkt junction:   ' + MKT_DIR + ' -> ' + PLUGIN_DIR);
 
     // Verify junctions were created
     if (!junctionExists(CACHE_DIR) || !junctionExists(MKT_DIR)) {
-        console.error('ERROR: Junction creation failed. Try running as administrator.');
+        logErr('ERROR: Junction creation failed. Try running as administrator.');
         process.exit(1);
     }
 
@@ -123,7 +178,7 @@ function install() {
     //    UserPromptSubmit hooks fire for ALL prompts (matcher field is ignored for this event).
     //    The script reads stdin JSON { prompt: "..." } and launches the EXE only on keyword match.
     fs.writeFileSync(HOOK_SCRIPT_PATH, hookPs1Content(exePath), 'utf8');
-    console.log('  Hook script:    ' + HOOK_SCRIPT_PATH);
+    log('  Hook script:    ' + HOOK_SCRIPT_PATH);
 
     // 4. Inject UserPromptSubmit hook into settings.json.
     //    matcher is empty (required field but ignored by Claude Code for UserPromptSubmit).
@@ -144,6 +199,33 @@ function install() {
             statusMessage: 'Launching ClaudeTokenVampire...'
         }]
     });
+
+    // 4b. Statusline helper — writes rate_limits.json the desktop app polls for Anthropic's
+    //     authoritative 5h reset time. We do NOT trample an existing statusLine; if the user
+    //     already has one, we still write the ps1 (harmless) but tell them how to wire it up.
+    fs.writeFileSync(STATUSLINE_PATH, statuslinePs1Content(), 'utf8');
+    log('  Statusline ps1: ' + STATUSLINE_PATH);
+
+    const existingStatusLine = s.statusLine;
+    const ourStatusCommand   = `powershell -NoProfile -ExecutionPolicy Bypass -File "${STATUSLINE_PATH}"`;
+    const ourIsAlreadyInstalled =
+        existingStatusLine &&
+        existingStatusLine.command &&
+        existingStatusLine.command.includes('vampire-statusline.ps1');
+
+    if (!existingStatusLine) {
+        s.statusLine = { type: 'command', command: ourStatusCommand };
+        log('  Statusline registered in settings.json.');
+    } else if (ourIsAlreadyInstalled) {
+        // Refresh the path in case the user moved the plugin folder.
+        s.statusLine = { type: 'command', command: ourStatusCommand };
+        log('  Statusline already registered — refreshed path.');
+    } else {
+        log('  NOTE: You already have a custom statusLine. We did NOT overwrite it.');
+        log('        To use the authoritative Anthropic reset time, manually invoke');
+        log('        ' + STATUSLINE_PATH + ' from your existing statusLine command');
+        log('        (it reads stdin and prints nothing — chain it before your own logic).');
+    }
 
     writeJSON(SETTINGS_FILE, s);
 
@@ -168,10 +250,10 @@ function install() {
     }];
     writeJSON(INSTALLED, ip);
 
-    console.log('Plugin installed.');
-    console.log('  Plugin dir:     ' + PLUGIN_DIR);
-    console.log('  EXE:            ' + exePath);
-    console.log('  Settings:       ' + SETTINGS_FILE);
+    logOk('Plugin installed.');
+    log('  Plugin dir:     ' + PLUGIN_DIR);
+    log('  EXE:            ' + exePath);
+    log('  Settings:       ' + SETTINGS_FILE);
 }
 
 function uninstall() {
@@ -214,13 +296,25 @@ function uninstall() {
         if (Object.keys(s.hooks).length === 0)
             delete s.hooks;
     }
+    // Remove statusLine entry only when WE installed it (preserve any user-customized one).
+    let statuslineWasOurs = false;
+    if (s.statusLine && s.statusLine.command && s.statusLine.command.includes('vampire-statusline.ps1')) {
+        delete s.statusLine;
+        statuslineWasOurs = true;
+    }
     writeJSON(SETTINGS_FILE, s);
 
-    // 3. Remove ps1 helper script
+    // 3. Remove ps1 helper scripts
     if (fs.existsSync(HOOK_SCRIPT_PATH)) {
         fs.unlinkSync(HOOK_SCRIPT_PATH);
-        console.log('  Hook script removed: ' + HOOK_SCRIPT_PATH);
+        log('  Hook script removed: ' + HOOK_SCRIPT_PATH);
     }
+    if (fs.existsSync(STATUSLINE_PATH)) {
+        fs.unlinkSync(STATUSLINE_PATH);
+        log('  Statusline ps1 removed: ' + STATUSLINE_PATH);
+    }
+    if (statuslineWasOurs)
+        log('  Statusline entry removed from settings.json.');
 
     // 4. known_marketplaces.json — remove marketplace
     const km = readJSON(KNOWN_MKT);
@@ -236,8 +330,8 @@ function uninstall() {
         writeJSON(INSTALLED, ip);
     }
 
-    console.log('Plugin uninstalled.');
-    console.log('  Settings:       ' + SETTINGS_FILE);
+    logOk('Plugin uninstalled.');
+    log('  Settings:       ' + SETTINGS_FILE);
 }
 
 // --- Main ---
@@ -245,6 +339,6 @@ const action = process.argv[2];
 if (action === 'install')        install();
 else if (action === 'uninstall') uninstall();
 else {
-    console.error('Usage: node setup.js install | uninstall');
+    logErr('Usage: node setup.js install | uninstall');
     process.exit(1);
 }
