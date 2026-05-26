@@ -60,7 +60,7 @@ try {
     $j = $stdin | ConvertFrom-Json
     $rl = $j.rate_limits
     if ($rl -ne $null) {
-        $out = @{ written_at = [int][double]::Parse((Get-Date -UFormat %s)) }
+        $out = @{ written_at = [DateTimeOffset]::Now.ToUnixTimeSeconds() }
         if ($rl.five_hour -ne $null) {
             $out.five_hour = @{
                 used_percentage = $rl.five_hour.used_percentage
@@ -201,8 +201,11 @@ function install() {
     });
 
     // 4b. Statusline helper — writes rate_limits.json the desktop app polls for Anthropic's
-    //     authoritative 5h reset time. We do NOT trample an existing statusLine; if the user
-    //     already has one, we still write the ps1 (harmless) but tell them how to wire it up.
+    //     authoritative 5h reset time. Claude Code allows only ONE statusLine.command, so when
+    //     a third-party tool (claude-hud, ccstatusline, etc.) already owns the slot we wrap it
+    //     with a bash tee that feeds stdin to BOTH vampire-statusline.ps1 (silent) and the
+    //     original command. The original tool's stdout still becomes the visible status line.
+    //     Caveat: chain may break if the wrapped tool later changes its own command via update.
     fs.writeFileSync(STATUSLINE_PATH, statuslinePs1Content(), 'utf8');
     log('  Statusline ps1: ' + STATUSLINE_PATH);
 
@@ -217,14 +220,23 @@ function install() {
         s.statusLine = { type: 'command', command: ourStatusCommand };
         log('  Statusline registered in settings.json.');
     } else if (ourIsAlreadyInstalled) {
-        // Refresh the path in case the user moved the plugin folder.
-        s.statusLine = { type: 'command', command: ourStatusCommand };
-        log('  Statusline already registered — refreshed path.');
+        // Already wrapped (or solo). Refresh path in case the plugin folder moved.
+        // If a third-party command is embedded inside the existing wrapper, leave it intact.
+        s.statusLine = { type: 'command', command: existingStatusLine.command };
+        log('  Statusline already chained — refreshed.');
     } else {
-        log('  NOTE: You already have a custom statusLine. We did NOT overwrite it.');
-        log('        To use the authoritative Anthropic reset time, manually invoke');
-        log('        ' + STATUSLINE_PATH + ' from your existing statusLine command');
-        log('        (it reads stdin and prints nothing — chain it before your own logic).');
+        // Third-party tool owns the slot. Wrap it with bash tee so both consumers get stdin.
+        // Path conversion: setup.js produces Windows paths; bash needs forward slashes.
+        const ps1Bash  = STATUSLINE_PATH.replace(/\\/g, '/');
+        const original = existingStatusLine.command;
+        const wrapper  =
+            `STDIN=$(cat); ` +
+            `printf '%s' "$STDIN" | powershell -NoProfile -ExecutionPolicy Bypass -File "${ps1Bash}" >/dev/null 2>&1 & ` +
+            `PS_PID=$!; ` +
+            `printf '%s' "$STDIN" | (${original}); ` +
+            `wait $PS_PID 2>/dev/null`;
+        s.statusLine = { type: 'command', command: wrapper };
+        log('  Statusline chained: wrapped existing command + vampire-statusline.ps1 tee.');
     }
 
     writeJSON(SETTINGS_FILE, s);
@@ -296,10 +308,21 @@ function uninstall() {
         if (Object.keys(s.hooks).length === 0)
             delete s.hooks;
     }
-    // Remove statusLine entry only when WE installed it (preserve any user-customized one).
+    // statusLine: three cases.
+    //   (a) Solo vampire — drop it entirely.
+    //   (b) Chained wrapper — extract the original `(...)` payload and restore it.
+    //   (c) Third-party only — leave alone.
     let statuslineWasOurs = false;
     if (s.statusLine && s.statusLine.command && s.statusLine.command.includes('vampire-statusline.ps1')) {
-        delete s.statusLine;
+        const cmd = s.statusLine.command;
+        // Match the inner command of `printf '%s' "$STDIN" | (...)` from the wrapper template.
+        const m = cmd.match(/printf '%s' "\$STDIN" \| \((.*?)\); wait \$PS_PID/);
+        if (m && m[1]) {
+            s.statusLine = { type: 'command', command: m[1] };
+            log('  Statusline unchained: restored original command.');
+        } else {
+            delete s.statusLine;
+        }
         statuslineWasOurs = true;
     }
     writeJSON(SETTINGS_FILE, s);
